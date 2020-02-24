@@ -1,0 +1,136 @@
+---
+title: "EJS_map"
+author: "Jeremiah Kim"
+date: "2/23/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(leaflet)
+library(leaflet.extras)
+library(janitor)
+library(dplyr)
+library(htmltools)
+```
+
+```{r, Data I will be using}
+s <- read_csv("map_data/Colleges_and_Universities.csv")
+sD <- read_csv("map_data/Institutional Data.csv")
+NEPI <- read_csv("map_data/R1_Doctoral_Indicators2.csv")
+
+schools <- s %>% 
+    clean_names()
+schoolData <- sD %>% 
+    clean_names()
+NEPindicators <- NEPI %>% 
+    clean_names()
+```
+
+```{r, Combining School Data with NEP Data, include = F}
+fulldata <- schoolData %>% 
+    right_join(NEPindicators, by = c("unit_id" = "unitid")) %>% 
+    rename(Slatitude = latitude_location_of_institution_hd2018, Slongitude = longitude_location_of_institution_hd2018)
+
+completeSet <- indicators %>%
+    clean_names() %>%
+    rename(latitude = latitude_location_of_institution_hd2018, longitude = longitude_location_of_institution_hd2018)
+```
+
+
+```{r, Making the map}
+
+#Things left to do: color the points based on their classification. Limit the zoom so that you cannot see the entire world. Add a label marker with the schools population, carnegie classification, and other data you might find interesting. Here is the NEP color landcolor = "#55c2e5"
+
+AllCollegeSubset <- leaflet(fulldata) %>% 
+    addProviderTiles("OpenStreetMap.Mapnik")
+
+ethicsreq_Y <- filter(fulldata, gened_req == "y") %>% 
+    select(institution_name, Slatitude, Slongitude, gened_req, gened_allow)
+ethicsreq_N <- filter(fulldata, gened_req == "n") %>% 
+    select(institution_name, Slatitude, Slongitude, gened_req, gened_allow)
+everyUni <- completeSet %>% 
+    select(institution_name, latitude, longitude)
+
+AllCollegeSubset %>% 
+    addCircleMarkers(data = ethicsreq_Y, lat = ~Slatitude, lng = ~Slongitude, radius = 2, label = ~htmlEscape(institution_name), group = "Ethics Required") %>% 
+    addCircleMarkers(data = ethicsreq_N, lat = ~Slatitude, lng = ~Slongitude, radius = 2, label = ~htmlEscape(institution_name), group = "Ethics Not Required")  %>%
+    addCircleMarkers(data = everyUni, lat = ~latitude, lng = ~longitude, radius = 2, label = ~htmlEscape(institution_name), group = "Every University in the US")  %>% 
+    addLayersControl(baseGroups = c("OpenStreetMap.Mapnik"), overlayGroups = c("Ethics Required", "Ethics Not Required", "Every University in the US")) %>% 
+    setView(lat = 39.8282, lng = -98.5795, zoom = 3)
+    
+```
+
+
+
+
+```{r, Datacamp code (junk code I used to figure out my formating)}
+m2 <- 
+    ipeds %>% 
+        leaflet() %>% 
+            # use the CartoDB provider tile
+            addProviderTiles("CartoDB") %>% 
+            # center on the middle of the US with zoom of 3
+            setView(lat = 39.8282, lng = -98.5795, zoom = 3)
+
+# Map all American colleges 
+m2 %>% 
+    addCircleMarkers() 
+
+# Create data frame called public with only public colleges
+public <- filter(ipeds, sector_label == "Public")  
+
+# Create a leaflet map of public colleges called m3 
+m3 <- leaflet() %>% 
+        addProviderTiles("CartoDB") %>% 
+        addCircleMarkers(data = public, radius = 2, label = ~htmlEscape(name),
+                         color = ~pal(sector_label), group = "Public")
+
+m3
+
+# Create data frame called private with only private colleges
+private <- filter(ipeds, sector_label == "Private")  
+
+# Add private colleges to `m3` as a new layer
+m3 <- m3 %>% 
+        addCircleMarkers(data = private, radius = 2, label = ~htmlEscape(name),
+                         color = ~pal(sector_label), group = "Private") %>% 
+        addLayersControl(overlayGroups = c("Public", "Private"))
+
+m3
+
+# Create data frame called profit with only For-Profit colleges
+profit <- filter(ipeds, sector_label == "For-Profit")  
+
+# Add For-Profit colleges to `m3` as a new layer
+m3 <- m3 %>% 
+        addCircleMarkers(data = profit, radius = 2, label = ~htmlEscape(name),
+                         color = ~pal(sector_label),   group = "For-Profit")  %>% 
+        addLayersControl(overlayGroups = c("Public", "Private", "For-Profit"))  
+
+# Center the map on the middle of the US with a zoom of 4
+m4 <- m3 %>%
+        setView(lat = 39.8282, lng = -98.5795, zoom = 4) 
+        
+m4
+
+m4 <- leaflet() %>% 
+        addTiles(group = "OSM") %>% 
+        addProviderTiles("CartoDB", group = "Carto") %>% 
+        addProviderTiles("Esri", group = "Esri") %>% 
+        addCircleMarkers(data = public, radius = 2, label = ~htmlEscape(name),
+                         color = ~pal(sector_label),  group = "Public") %>% 
+        addCircleMarkers(data = private, radius = 2, label = ~htmlEscape(name),
+                           color = ~pal(sector_label), group = "Private")  %>% 
+        addCircleMarkers(data = profit, radius = 2, label = ~htmlEscape(name),
+                         color = ~pal(sector_label), group = "For-Profit")  %>% 
+        addLayersControl(baseGroups = c("OSM", "Carto", "Esri"), 
+                         overlayGroups = c("Public", "Private", "For-Profit")) %>% 
+        setView(lat = 39.8282, lng = -98.5795, zoom = 4) 
+
+m4
+```
+
+
+
