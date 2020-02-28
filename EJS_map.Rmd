@@ -46,6 +46,7 @@ fulldata <- NEPI %>%
     select(-institution_entity_name_hd2018, -institution_name_alias_hd2018) %>% 
     rename(latitude = latitude_location_of_institution_hd2018, longitude = longitude_location_of_institution_hd2018, carnegie_class = carnegie_classification_2018_basic_hd2018 ) %>% 
     mutate(gened_req = ifelse(gened_req == "n", "No", "Yes")) %>% 
+    mutate(gened_allow = ifelse(gened_allow == "n", "No", "Yes")) %>% 
     mutate(ethicscenter = ifelse(ethicscenter == "n", "No", "Yes"))
 
 #This will be used to see every school
@@ -61,9 +62,9 @@ completeSet <- sD %>%
 #Which schools require ethics and which do not
 
 ethicsreq_Y <- filter(fulldata, gened_req == "Yes") %>% 
-    select(name, latitude, longitude, gened_req, gened_allow)
+    select(name, latitude, longitude, gened_req, gened_allow, ethicscenter, carnegie_class)
 ethicsreq_N <- filter(fulldata, gened_req == "No") %>% 
-    select(name, latitude, longitude, gened_req, gened_allow) 
+    select(name, latitude, longitude, gened_req, gened_allow, ethicscenter, carnegie_class) 
 
 ```
     
@@ -73,16 +74,22 @@ ethicsreq_N <- filter(fulldata, gened_req == "No") %>%
     setView(lat = 39.8282, lng = -98.5795, zoom = 3) %>%
     
     addCircleMarkers(data = completeSet, lat = ~latitude, lng = ~longitude, radius = 2, 
-                     label = ~htmlEscape(institution_name), popup = ~paste0(institution_name, "<br>", "Ethics Required: ", fulldata$gened_req), group = "Every University in the US", color = "black")  %>% 
+                     label = ~institution_name, popup = ~paste0(institution_name), group = "Every University in the US", color = "black")  %>% 
     
     addCircleMarkers(data = ethicsreq_Y, lat = ~latitude, lng = ~longitude, radius = 3, 
-                     label = ~htmlEscape(name), popup = ~paste0(name, "<br>", "Ethics Required: ", ethicsreq_Y$gened_req, "<br>", "Carnegie Classification: ", fulldata$carnegie_class), group = "Ethics Required", color = "blue") %>% 
+                     label = ~htmlEscape(name), 
+                     popup = ~paste0(name, "<br>", "Ethics Required: ", gened_req, "<br>", "Ethics offered as a Gened: ", gened_allow, "<br>", "Ethics Center: ", ethicscenter, "<br>", "Carnegie Classification: ", carnegie_class), 
+                     group = "Ethics Required", color = "blue") %>% 
     
     addCircleMarkers(data = ethicsreq_N, lat = ~latitude, lng = ~longitude, radius = 2, 
-                     label = ~htmlEscape(name), popup = ~paste0(name, "<br>", "Ethics Required: ", ethicsreq_N$gened_req, "<br>", "Carnegie Classification: ", fulldata$carnegie_class), group = "Ethics Not Required", color = "red")  %>%
+                     label = ~htmlEscape(name), 
+                     popup = ~paste0(name, "<br>", "Ethics Required: ", gened_req, "<br>", "Ethics offered as a Gen-Ed: ", gened_allow, "<br>", "Ethics Center: ", ethicscenter, "<br>", "Carnegie Classification: ", carnegie_class), 
+                     group = "Ethics Not Required", color = "red")  %>%
     
     addCircleMarkers(data = fulldata, lat = ~latitude, lng = ~longitude, radius = 2, 
-                     label = ~htmlEscape(name), popup = ~paste0(name, "<br>", "Ethics Required: ", fulldata$gened_req, "<br>", "Carnegie Classification: ", fulldata$carnegie_class), group = "Schools in the subset", color = "yellow")  %>%
+                     label = ~htmlEscape(name), 
+                     popup = ~paste0(name, "<br>", "Ethics Required: ", gened_req, "<br>", "Ethics offered as a Gen-Ed: ", gened_allow, "<br>", "Ethics Center: ", ethicscenter, "<br>", "Carnegie Classification: ", carnegie_class), 
+                     group = "Schools in the subset", color = "yellow")  %>%
     
     addLayersControl(baseGroups = c("OpenStreetMap.Mapnik"), 
                      overlayGroups = c("Every University in the US","Ethics Required", "Ethics Not Required", "Schools in the subset")) %>% 
