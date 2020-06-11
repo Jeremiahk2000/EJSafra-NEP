@@ -1,0 +1,103 @@
+---
+title: "EJS_map"
+author: "Jeremiah Kim"
+date: "2/23/2020"
+output: html_document
+---
+
+```{r setup, include= F}
+knitr::opts_chunk$set(echo = F)
+library(tidyverse)
+library(leaflet)
+library(leaflet.extras)
+library(janitor)
+library(dplyr)
+library(htmltools)
+```
+
+```{r, Data I will be using, include = F}
+
+#University data I found online. I never actually used this.
+
+s <- read_csv("map_data/Colleges_and_Universities.csv")
+
+#Data used in Drew's original map
+
+sD <- read_csv("map_data/Institutional Data.csv")
+
+#Data used in Drew's original map
+
+NEPI <- read_csv("map_data/R1_Doctoral_Indicators2.csv")
+
+#Making the data easier to work with
+
+sD <- sD %>% 
+    clean_names()
+NEPI <- NEPI %>% 
+    clean_names()
+```
+
+```{r, Combining School Data with NEP Data, include = F}
+
+#Combining the Indicators data with the Institutional Data
+
+fulldata <- NEPI %>% 
+    left_join(sD, by= c("unitid" = "unit_id", "name" = "institution_name" , "city" = "city_location_of_institution_hd2018", "stabbr" = "state_abbreviation_hd2018")) %>% 
+    select(-institution_entity_name_hd2018, -institution_name_alias_hd2018) %>% 
+    rename(latitude = latitude_location_of_institution_hd2018, longitude = longitude_location_of_institution_hd2018, carnegie_class = carnegie_classification_2018_basic_hd2018 ) %>% 
+    mutate(gened_req = ifelse(gened_req == "n", "No", "Yes")) %>% 
+    mutate(gened_allow = ifelse(gened_allow == "n", "No", "Yes")) %>% 
+    mutate(ethicscenter = ifelse(ethicscenter == "n", "No", "Yes"))
+
+#This will be used to see every school
+
+completeSet <- sD %>%
+    rename(latitude = latitude_location_of_institution_hd2018, longitude = longitude_location_of_institution_hd2018) %>% 
+    select(institution_name, latitude, longitude)
+```
+
+
+```{r, Making the map}
+
+#Which schools require ethics and which do not
+
+ethicsreq_Y <- filter(fulldata, gened_req == "Yes") %>% 
+    select(name, latitude, longitude, gened_req, gened_allow, ethicscenter, carnegie_class)
+ethicsreq_N <- filter(fulldata, gened_req == "No") %>% 
+    select(name, latitude, longitude, gened_req, gened_allow, ethicscenter, carnegie_class) 
+
+```
+    
+```{r}
+    leaflet(fulldata, options = leafletOptions(zoomControl = F, minZoom = 3, dragging = T)) %>% 
+    addProviderTiles("OpenStreetMap.Mapnik") %>% 
+    setView(lat = 39.8282, lng = -98.5795, zoom = 3) %>%
+    
+    addCircleMarkers(data = completeSet, lat = ~latitude, lng = ~longitude, radius = 2, 
+                     label = ~institution_name, popup = ~paste0(institution_name), group = "Every University in the US", color = "black")  %>% 
+    
+    addCircleMarkers(data = ethicsreq_Y, lat = ~latitude, lng = ~longitude, radius = 3, 
+                     label = ~htmlEscape(name), 
+                     popup = ~paste0(name, "<br>", "Ethics Required: ", gened_req, "<br>", "Ethics offered as a Gened: ", gened_allow, "<br>", "Ethics Center: ", ethicscenter, "<br>", "Carnegie Classification: ", carnegie_class), 
+                     group = "Ethics Required", color = "blue") %>% 
+    
+    addCircleMarkers(data = ethicsreq_N, lat = ~latitude, lng = ~longitude, radius = 2, 
+                     label = ~htmlEscape(name), 
+                     popup = ~paste0(name, "<br>", "Ethics Required: ", gened_req, "<br>", "Ethics offered as a Gen-Ed: ", gened_allow, "<br>", "Ethics Center: ", ethicscenter, "<br>", "Carnegie Classification: ", carnegie_class), 
+                     group = "Ethics Not Required", color = "red")  %>%
+    
+    addCircleMarkers(data = fulldata, lat = ~latitude, lng = ~longitude, radius = 2, 
+                     label = ~htmlEscape(name), 
+                     popup = ~paste0(name, "<br>", "Ethics Required: ", gened_req, "<br>", "Ethics offered as a Gen-Ed: ", gened_allow, "<br>", "Ethics Center: ", ethicscenter, "<br>", "Carnegie Classification: ", carnegie_class), 
+                     group = "Schools in the subset", color = "yellow")  %>%
+    
+    addLayersControl(baseGroups = c("OpenStreetMap.Mapnik"), 
+                     overlayGroups = c("Every University in the US","Ethics Required", "Ethics Not Required", "Schools in the subset")) %>% 
+   addSearchOSM() %>%
+    addResetMapButton()
+    
+```
+
+
+
+
